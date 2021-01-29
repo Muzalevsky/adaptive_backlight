@@ -4,11 +4,8 @@
 
 #include <QThread>
 
-#define RECONNECTION_RETRIES_NUMBER 20
 Port::Port(QObject *parent) :
-    QObject(parent),
-    portMode(0),
-    reconnect_counter(RECONNECTION_RETRIES_NUMBER)
+    QObject(parent)
 {
     /*
      * see https://doc-snapshots.qt.io/qt5-5.10/qserialport.html
@@ -32,26 +29,13 @@ void Port::process_Port()
              << "in thread" << this->thread()
              << "parent" << parent();
 
-    //qRegisterMetaType<QSerialPort::SerialPortError>("QSerialPort::SerialPortError");
-
     connect(&thisPort, &QSerialPort::errorOccurred, this, &Port::handleError);
     connect(&thisPort, SIGNAL(readyRead()),this,SLOT(ReadInPort()));
 }
 
-void Port::setPortSettings(QString name, int baudrate,int DataBits,
-                         int Parity,int StopBits, int FlowControl)
+void Port::setPortSettings(const PortSettings ps)
 {
-    SettingsPort.name = name;
-    SettingsPort.baudRate = (QSerialPort::BaudRate) baudrate;
-    SettingsPort.dataBits = (QSerialPort::DataBits) DataBits;
-    SettingsPort.parity = (QSerialPort::Parity) Parity;
-    SettingsPort.stopBits = (QSerialPort::StopBits) StopBits;
-    SettingsPort.flowControl = (QSerialPort::FlowControl) FlowControl;
-}
-
-void Port::setPortOpenMode(QIODevice::OpenModeFlag flag)
-{
-    portMode = flag;
+    SettingsPort = ps;
 }
 
 void Port::openPort()
@@ -62,17 +46,15 @@ void Port::openPort()
     if (thisPort.open(QIODevice::ReadWrite))
     {
         if ( thisPort.setBaudRate(SettingsPort.baudRate) &&
-             thisPort.setDataBits(SettingsPort.dataBits) &&
-             thisPort.setParity(SettingsPort.parity) &&
-             thisPort.setStopBits(SettingsPort.stopBits) &&
-             thisPort.setFlowControl(SettingsPort.flowControl) )
+            thisPort.setDataBits(static_cast<QSerialPort::DataBits>(SettingsPort.dataBits)) &&
+            thisPort.setParity(static_cast<QSerialPort::Parity>(SettingsPort.parity)) &&
+            thisPort.setStopBits(static_cast<QSerialPort::StopBits>(SettingsPort.stopBits)) &&
+            thisPort.setFlowControl(static_cast<QSerialPort::FlowControl>(SettingsPort.flowControl)) )
         {
             if ( thisPort.isOpen() )
             {
                 qDebug() << SettingsPort.name + " >> Open!";
                 thisPort.clear();
-                emit connectionStateChanged(true);
-                reconnect_counter = RECONNECTION_RETRIES_NUMBER;
             }
         }
         else
@@ -100,7 +82,6 @@ void Port::handleError(QSerialPort::SerialPortError error)
          */
         case QSerialPort::DeviceNotFoundError:
             thisPort.close();
-            emit connectionStateChanged(false);
         break;
 
         /*
@@ -109,14 +90,9 @@ void Port::handleError(QSerialPort::SerialPortError error)
          */
         case QSerialPort::ResourceError:
             thisPort.close();
-            emit connectionStateChanged(false);
         break;
 
         case QSerialPort::TimeoutError:
-            emit connectionStateChanged(false);
-            if ( (thisPort.isOpen()) ) {
-                reconnectPort();
-            }
         break;
 
         default:
@@ -130,7 +106,6 @@ void Port::closePort()
         thisPort.clear( QSerialPort::AllDirections );
         thisPort.close();
         qDebug() << SettingsPort.name << " >> Close!";
-        emit connectionStateChanged(false);
     }
 }
 
@@ -152,26 +127,7 @@ void Port::ReadInPort()
     }
 }
 
-void Port::connect_clicked()
-{
-    if ( thisPort.isOpen() ) {
-        closePort();
-    } else {
-        openPort();
-    }
-}
-
 bool Port::isOpened()
 {
     return thisPort.isOpen();
-}
-
-void Port::reconnectPort()
-{
-    if ( reconnect_counter > 0 )
-    {
-        closePort();
-        openPort();
-        reconnect_counter--;
-    }
 }

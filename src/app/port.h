@@ -3,15 +3,16 @@
 
 #include <QSerialPort>
 #include <QSerialPortInfo>
-#include <QTimer>
 
-struct Settings {
+struct PortSettings {
     QString name;
     qint32 baudRate;
-    QSerialPort::DataBits dataBits;
-    QSerialPort::Parity parity;
-    QSerialPort::StopBits stopBits;
-    QSerialPort::FlowControl flowControl;
+    int dataBits;
+    int parity;
+    int stopBits;
+    int flowControl;
+    int responseTime;
+    int numberOfRetries;
 };
 
 class Port : public QObject
@@ -21,15 +22,12 @@ public:
     explicit Port(QObject *parent = 0);
     ~Port();
 
-    QSerialPort thisPort;
-    Settings SettingsPort;
-
     bool isOpened();
-    void setPortOpenMode(QIODevice::OpenModeFlag flag);
 
 private:
-    int portMode;
-    int reconnect_counter;
+    QSerialPort thisPort;
+    PortSettings SettingsPort;
+
 signals:
     void finished_Port();
     void outPortString(QString data);
@@ -37,14 +35,12 @@ signals:
     void connectionStateChanged(bool isConnected);
 
 public slots:
+    void setPortSettings(const PortSettings ps);
     void closePort();
     void openPort();
-    void setPortSettings(QString name, int baudrate, int DataBits, int Parity, int StopBits, int FlowControl);
     void process_Port();
     void WriteToPort(QByteArray data);
     void ReadInPort();
-    void connect_clicked();
-    void reconnectPort();
 
 private slots:
     void handleError(QSerialPort::SerialPortError error);

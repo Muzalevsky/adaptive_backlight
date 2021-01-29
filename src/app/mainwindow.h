@@ -15,21 +15,20 @@ class MainWindow;
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
-
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-    SettingsDialog  *m_settingsDialog;
-
 
 private:
+    void            closeEvent(QCloseEvent *event);
+
     Ui::MainWindow  *ui;
     QPixmap         pixmap;
+    QSettings       *settings;
+
+    SettingsDialog  *m_settingsDialog;
     Port            *led_serial;
     bool            _debug;
-    QSettings           *settings;
-
-    void closeEvent(QCloseEvent *event);
 
 public slots:
     void makeScreenShot();
@@ -38,11 +37,10 @@ signals:
 private slots:
     void loadSettings();
     void writeSettings();
-    void openSerialPort();
+    void connectSerialPortClicked();
     void closeSerialPort();
 
-
-    void on_serialSettingsButton_released();
+    void on_serialSettingsButton_released() { m_settingsDialog->show(); }
 };
 
 #endif // MAINWINDOW_H

@@ -54,6 +54,8 @@
 #include <QDialog>
 #include <QSerialPort>
 
+#include <port.h>
+
 QT_BEGIN_NAMESPACE
 
 namespace Ui {
@@ -65,31 +67,19 @@ QT_END_NAMESPACE
 class SettingsDialog : public QDialog
 {
     Q_OBJECT
-
 public:
-    struct Settings {
-        int parity = QSerialPort::NoParity;
-        int baud = QSerialPort::Baud9600;
-        int dataBits = QSerialPort::Data8;
-        int stopBits = QSerialPort::OneStop;
-        int responseTime = 1000;
-        int numberOfRetries = 3;
-        int flow = QSerialPort::NoFlowControl;
-    };
-
     explicit SettingsDialog(QWidget *parent = nullptr);
     ~SettingsDialog();
 
-    Settings settings() const;
-
-    Settings m_settings;
-    QString port_name;
+    PortSettings settings() const;
+    PortSettings m_settings;
+private:
     Ui::SettingsDialog *ui;
 
-private:
-
 public slots:
-    void setBaud( int baud );
+    void setBaud(int baud);
+    void setName(QString name);
+
 };
 
 #endif // SETTINGSDIALOG_H
