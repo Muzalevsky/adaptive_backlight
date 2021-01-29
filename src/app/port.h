@@ -24,9 +24,9 @@ public:
 
     bool isOpened();
 
+    PortSettings portSettings;
 private:
     QSerialPort thisPort;
-    PortSettings SettingsPort;
 
 signals:
     void finished_Port();
@@ -35,7 +35,6 @@ signals:
     void connectionStateChanged(bool isConnected);
 
 public slots:
-    void setPortSettings(const PortSettings ps);
     void closePort();
     void openPort();
     void process_Port();

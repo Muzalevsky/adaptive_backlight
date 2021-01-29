@@ -33,27 +33,22 @@ void Port::process_Port()
     connect(&thisPort, SIGNAL(readyRead()),this,SLOT(ReadInPort()));
 }
 
-void Port::setPortSettings(const PortSettings ps)
-{
-    SettingsPort = ps;
-}
-
 void Port::openPort()
 {
-    thisPort.setPortName(SettingsPort.name);
+    thisPort.setPortName(portSettings.name);
     qDebug() << "Opening " << thisPort.portName();
 
     if (thisPort.open(QIODevice::ReadWrite))
     {
-        if ( thisPort.setBaudRate(SettingsPort.baudRate) &&
-            thisPort.setDataBits(static_cast<QSerialPort::DataBits>(SettingsPort.dataBits)) &&
-            thisPort.setParity(static_cast<QSerialPort::Parity>(SettingsPort.parity)) &&
-            thisPort.setStopBits(static_cast<QSerialPort::StopBits>(SettingsPort.stopBits)) &&
-            thisPort.setFlowControl(static_cast<QSerialPort::FlowControl>(SettingsPort.flowControl)) )
+        if ( thisPort.setBaudRate(portSettings.baudRate) &&
+            thisPort.setDataBits(static_cast<QSerialPort::DataBits>(portSettings.dataBits)) &&
+            thisPort.setParity(static_cast<QSerialPort::Parity>(portSettings.parity)) &&
+            thisPort.setStopBits(static_cast<QSerialPort::StopBits>(portSettings.stopBits)) &&
+            thisPort.setFlowControl(static_cast<QSerialPort::FlowControl>(portSettings.flowControl)) )
         {
             if ( thisPort.isOpen() )
             {
-                qDebug() << SettingsPort.name + " >> Open!";
+                qDebug() << portSettings.name + " >> Open!";
                 thisPort.clear();
             }
         }
@@ -105,7 +100,7 @@ void Port::closePort()
     if ( thisPort.isOpen() ) {
         thisPort.clear( QSerialPort::AllDirections );
         thisPort.close();
-        qDebug() << SettingsPort.name << " >> Close!";
+        qDebug() << portSettings.name << " >> Close!";
     }
 }
 
@@ -113,6 +108,7 @@ void Port::WriteToPort(QByteArray data)
 {
     if ( thisPort.isOpen() ) {
         thisPort.write(data);
+        qDebug() << data;
     }
 }
 

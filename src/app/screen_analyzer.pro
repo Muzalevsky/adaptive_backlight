@@ -25,12 +25,15 @@ DEFINES += QT_DEPRECATED_WARNINGS
 CONFIG += c++11
 
 SOURCES += \
+    controllerprotocol.cpp \
         main.cpp \
         mainwindow.cpp \
     port.cpp \
     settingsdialog.cpp
 
 HEADERS += \
+    controllerprotocol.h \
+    crc_calc.h \
         mainwindow.h \
     port.h \
     settingsdialog.h

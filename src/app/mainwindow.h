@@ -26,9 +26,13 @@ private:
     QPixmap         pixmap;
     QSettings       *settings;
 
-    SettingsDialog  *m_settingsDialog;
     Port            *led_serial;
-    bool            _debug;
+
+    uint16_t        nLed;
+    uint16_t        dev_id;
+    uint16_t        width_nLed;
+    uint16_t        height_nLed;
+    int             timer_delay_ms;
 
 public slots:
     void makeScreenShot();
@@ -40,7 +44,7 @@ private slots:
     void connectSerialPortClicked();
     void closeSerialPort();
 
-    void on_serialSettingsButton_released() { m_settingsDialog->show(); }
+    void on_serialSettingsButton_clicked();
 };
 
 #endif // MAINWINDOW_H
