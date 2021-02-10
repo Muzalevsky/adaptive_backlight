@@ -4,10 +4,11 @@
 #include <QDebug>
 #include <QScreen>
 #include <QWindow>
-//#include <QtSerialPort/QSerialPort>
-//#include <QRgb>
 #include <QThread>
 #include <QTimer>
+
+#include <controllerprotocol.h>
+#include <crc_calc.h>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -25,26 +26,87 @@ MainWindow::MainWindow(QWidget *parent) :
     led_serial->moveToThread(threadLed);
     connect(led_serial, SIGNAL(finished_Port()), threadLed, SLOT(deleteLater()));
     connect(led_serial, SIGNAL(finished_Port()), threadLed, SLOT(quit()));
+
+//    connect(this, SIGNAL(openPort()), led_serial, SLOT(openPort()));
+//    connect(this, SIGNAL(closePort()), led_serial, SLOT(closePort()));
+
     connect(threadLed, SIGNAL(started()), led_serial, SLOT(process_Port()));//Переназначения метода run
     connect(threadLed, SIGNAL(finished()), led_serial, SLOT(deleteLater()));//Удалить к чертям поток
     threadLed->start();
 
-    connect( this, &MainWindow::updateLeds, led_serial, &Port::WriteToPort );
+    connect( this, &MainWindow::updateLeds, led_serial, &Port::WriteToPort, Qt::QueuedConnection );
     connect(ui->openPortButton, &QPushButton::clicked, this, &MainWindow::connectSerialPortClicked);
+
+    connect(led_serial, &Port::outPortByteArray, this, &MainWindow::parseAnswer, Qt::QueuedConnection);
 
     loadSettings();
 
     /*
      * Timer for screen capturing and picture refreshing
      */
-    QTimer *timer = new QTimer(this);
-    connect(timer, &QTimer::timeout, this, &MainWindow::makeScreenShot);
-    timer->start(timer_delay_ms);
+    screenshot_timer = new QTimer(this);
+    connect(screenshot_timer, &QTimer::timeout, this, &MainWindow::makeScreenShot);
+    connect(ui->stopTimerButton, &QPushButton::clicked, this, &MainWindow::stopScreenshotTimer);
+    connect(ui->startTimerButton, &QPushButton::clicked, this, &MainWindow::startScreenshotTimer);
+//    connect(this, &MainWindow::setPortSettings, led_serial, &Port::setPortSettings);
+
+    /*
+     * Testing buttons
+     */
+    connect(ui->getIdButton, &QPushButton::clicked, this, &MainWindow::getId);
+    connect(ui->getParamsButton, &QPushButton::clicked, this, &MainWindow::getParams);
+
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::getId()
+{
+    QByteArray ba;
+    QDataStream stream(&ba, QIODevice::WriteOnly);
+    stream.setByteOrder( QDataStream::LittleEndian );
+
+    stream << static_cast<quint8>(0xFF) << static_cast<quint8>(Commands::GET_ID);
+    quint16 crc = crc16(reinterpret_cast<quint8*>(ba.data()), ba.length());
+    quint8 crc_h = (crc >> 8) & 0xFF;
+    quint8 crc_l = crc & 0xFF;
+    stream << static_cast<quint8>(crc_l) << static_cast<quint8>(crc_h);
+    qDebug() << ba;
+    emit updateLeds(ba);
+}
+
+void MainWindow::getParams()
+{
+    QByteArray ba;
+    QDataStream stream(&ba, QIODevice::WriteOnly);
+    stream.setByteOrder( QDataStream::LittleEndian );
+
+    stream << static_cast<quint8>(13) << static_cast<quint8>(Commands::GET_PARAMS);
+    quint16 crc = crc16(reinterpret_cast<quint8*>(ba.data()), ba.length());
+    quint8 crc_h = (crc >> 8) & 0xFF;
+    quint8 crc_l = crc & 0xFF;
+    stream << static_cast<quint8>(crc_l) << static_cast<quint8>(crc_h);
+    qDebug() << ba;
+    emit updateLeds(ba);
+}
+
+
+void MainWindow::startScreenshotTimer()
+{
+    screenshot_timer->start(timer_delay_ms);
+}
+
+void MainWindow::stopScreenshotTimer()
+{
+    screenshot_timer->stop();
+}
+
+void MainWindow::parseAnswer(QByteArray ba)
+{
+    qDebug() << ba;
 }
 
 void MainWindow::makeScreenShot()
@@ -56,11 +118,10 @@ void MainWindow::makeScreenShot()
     if (!screen)
         return;
 
-    if (!nLed)
+    if (!width_nLed)
         return;
 
-    int px_per_led = screen->size().width() / nLed;
-    qDebug() << "Using " << px_per_led  << "px_per_led";
+    int px_per_led = screen->size().width() / width_nLed;
 
     /*
      * Start analyzing screenshot
@@ -72,63 +133,70 @@ void MainWindow::makeScreenShot()
      * for different sides of the screen
      */
     QByteArray ba;
+    QDataStream stream(&ba, QIODevice::WriteOnly);
+//    stream.setVersion(QDataStream::Qt_5_10);
+    stream.setByteOrder( QDataStream::LittleEndian );
+
+    stream << static_cast<quint8>(dev_id) << static_cast<quint8>(Commands::SET_LED_COLOR);
 
     /* Top side */
-    for (uint16_t led_idx = 0; led_idx < width_nLed; led_idx++) {
+    for (quint16 led_idx = 0; led_idx < width_nLed; led_idx++) {
         QPixmap pixmap_per_led = pixmap.copy(px_per_led * led_idx, 0, px_per_led, px_per_led);
         QImage img_per_led = pixmap_per_led.toImage();
 
         // bilinear filtration
         QImage average_px = img_per_led.scaled(1,1,Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
         QColor color = QColor::fromRgba(average_px.pixel(0,0));
-//        qDebug() << "color" << color;
 
-        ba.append(led_idx);
-        ba.append(color.rgb());
+        stream << static_cast<quint8>(color.red()) << static_cast<quint8>(color.green()) << static_cast<quint8>(color.blue());
+//        stream << static_cast<quint8>(0xFF) << static_cast<quint8>(0xFF) << static_cast<quint8>(0x00);
+
     }
 
     /* Right side */
-    for (uint16_t led_idx = width_nLed; led_idx < width_nLed + height_nLed; led_idx++) {
+    for (quint16 led_idx = width_nLed; led_idx < width_nLed + height_nLed; led_idx++) {
         QPixmap pixmap_per_led = pixmap.copy( pixmap.width() - px_per_led, px_per_led * led_idx, px_per_led, px_per_led);
         QImage img_per_led = pixmap_per_led.toImage();
 
         // bilinear filtration
         QImage average_px = img_per_led.scaled(1,1,Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
         QColor color = QColor::fromRgba(average_px.pixel(0,0));
-//        qDebug() << "color" << color;
-
-        ba.append(led_idx);
-        ba.append(color.rgb());
+        stream << static_cast<quint8>(color.red()) << static_cast<quint8>(color.green()) << static_cast<quint8>(color.blue());
+//        stream << static_cast<quint8>(0xFF) << static_cast<quint8>(0xFF) << static_cast<quint8>(0x00);
     }
 
     /* Bottom side */
-    for (uint16_t led_idx = width_nLed + height_nLed; led_idx < (2 * width_nLed + height_nLed); led_idx++) {
+    for (quint16 led_idx = width_nLed + height_nLed; led_idx < (2 * width_nLed + height_nLed); led_idx++) {
         QPixmap pixmap_per_led = pixmap.copy( pixmap.width() - px_per_led * led_idx, pixmap.height() - px_per_led, px_per_led, px_per_led);
         QImage img_per_led = pixmap_per_led.toImage();
 
         // bilinear filtration
         QImage average_px = img_per_led.scaled(1,1,Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
         QColor color = QColor::fromRgba(average_px.pixel(0,0));
-//        qDebug() << "color" << color;
+        stream << static_cast<quint8>(color.red()) << static_cast<quint8>(color.green()) << static_cast<quint8>(color.blue());
+//        stream << static_cast<quint8>(0xFF) << static_cast<quint8>(0xFF) << static_cast<quint8>(0x00);
 
-        ba.append(led_idx);
-        ba.append(color.rgb());
     }
 
     /* Left side */
-    for (uint16_t led_idx = (2 * width_nLed + height_nLed); led_idx < (2 * (width_nLed + height_nLed)); led_idx++) {
+    for (quint16 led_idx = (2 * width_nLed + height_nLed); led_idx < (2 * (width_nLed + height_nLed)); led_idx++) {
         QPixmap pixmap_per_led = pixmap.copy( 0, pixmap.height() - px_per_led * led_idx, px_per_led, px_per_led);
         QImage img_per_led = pixmap_per_led.toImage();
 
         // bilinear filtration
         QImage average_px = img_per_led.scaled(1,1,Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
         QColor color = QColor::fromRgba(average_px.pixel(0,0));
-//        qDebug() << "color" << color;
+        stream << static_cast<quint8>(color.red()) << static_cast<quint8>(color.green()) << static_cast<quint8>(color.blue());
+//        stream << static_cast<quint8>(0xFF) << static_cast<quint8>(0xFF) << static_cast<quint8>(0x00);
 
-        ba.append(led_idx);
-        ba.append(color.rgb());
     }
 
+    quint16 crc = crc16(reinterpret_cast<quint8*>(ba.data()), ba.length());
+    quint8 crc_h = (crc >> 8) & 0xFF;
+    quint8 crc_l = crc & 0xFF;
+    stream << static_cast<quint8>(crc_l) << static_cast<quint8>(crc_h);
+
+//    qDebug() << ba;
     emit updateLeds(ba);
 }
 
@@ -144,7 +212,6 @@ void MainWindow::writeSettings()
     settings->setValue("app/size", size());
     settings->setValue("app/timer_step", timer_delay_ms);
 
-    settings->setValue("led_params/numberOfDiods", nLed);
     settings->setValue("led_params/widthInLed", width_nLed);
     settings->setValue("led_params/heightInLed", height_nLed);
 
@@ -171,9 +238,10 @@ void MainWindow::loadSettings()
 
     timer_delay_ms = settings->value("app/timer_step", 1000).toInt();
 
-    nLed = settings->value("led_params/numberOfDiods", 100).toInt();
     width_nLed = settings->value("led_params/widthInLed", 35).toInt();
     height_nLed = settings->value("led_params/heightInLed", 15).toInt();
+
+    nLed = ( width_nLed + height_nLed ) * 2;
 
     led_serial->portSettings.name = (settings->value("led_controller/port").toString());
     int led_controller_baud = settings->value("led_controller/baud").toInt();
@@ -186,6 +254,8 @@ void MainWindow::loadSettings()
     dev_id = settings->value("led_controller/device_id").toInt();
 
     qDebug() << "LED controller" << led_serial->portSettings.name << " /baud " << led_controller_baud;
+
+//    emit setPortSettings(portSettings);
 
     qDebug() << "Настройки считаны";
 }
@@ -201,11 +271,6 @@ void MainWindow::connectSerialPortClicked()
         if (!led_serial->isOpened())
             ui->openPortButton->setText("Подключиться");
     }
-}
-
-void MainWindow::closeSerialPort()
-{
-    led_serial->closePort();
 }
 
 void MainWindow::on_serialSettingsButton_clicked()

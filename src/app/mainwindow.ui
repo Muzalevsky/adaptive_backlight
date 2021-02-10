@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>335</width>
-    <height>188</height>
+    <height>282</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -20,14 +20,35 @@
       <x>0</x>
       <y>0</y>
       <width>331</width>
-      <height>111</height>
+      <height>201</height>
      </rect>
     </property>
     <layout class="QVBoxLayout" name="verticalLayout">
      <item>
-      <widget class="QPushButton" name="screenShotButton">
+      <widget class="QPushButton" name="startTimerButton">
        <property name="text">
-        <string>TestBtn</string>
+        <string>Start screenshot timer</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="stopTimerButton">
+       <property name="text">
+        <string>Stop screenshot timer</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="getIdButton">
+       <property name="text">
+        <string>Get ID</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="getParamsButton">
+       <property name="text">
+        <string>Get parameters</string>
        </property>
       </widget>
      </item>
@@ -58,7 +79,7 @@
      <x>0</x>
      <y>0</y>
      <width>335</width>
-     <height>22</height>
+     <height>26</height>
     </rect>
    </property>
   </widget>

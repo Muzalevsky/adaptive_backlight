@@ -3,6 +3,7 @@
 
 #include <QSerialPort>
 #include <QSerialPortInfo>
+#include <QVector>
 
 struct PortSettings {
     QString name;
@@ -30,7 +31,6 @@ private:
 
 signals:
     void finished_Port();
-    void outPortString(QString data);
     void outPortByteArray(QByteArray data);
     void connectionStateChanged(bool isConnected);
 
@@ -38,8 +38,9 @@ public slots:
     void closePort();
     void openPort();
     void process_Port();
-    void WriteToPort(QByteArray data);
+    void WriteToPort(QByteArray ba);
     void ReadInPort();
+//    void setPortSettings(PortSettings& ps);
 
 private slots:
     void handleError(QSerialPort::SerialPortError error);

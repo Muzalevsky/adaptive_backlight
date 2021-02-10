@@ -15,7 +15,7 @@ Port::Port(QObject *parent) :
      * port should be protected against receiving too much data, which
      * may eventually cause the application to run out of memory.
      */
-    thisPort.setReadBufferSize(1000);
+//    thisPort.setReadBufferSize(1000);
 }
 
 Port::~Port()
@@ -23,12 +23,29 @@ Port::~Port()
     emit finished_Port();
 }
 
+//void Port::setPortSettings(PortSettings& ps)
+//{
+////    portSettings = ps;
+
+//    portSettings.baudRate = ps.baudRate;
+//    portSettings.dataBits = ps.dataBits;
+//    portSettings.flowControl = ps.flowControl;
+//    portSettings.name = ps.name;
+//    portSettings.numberOfRetries = ps.numberOfRetries;
+//    portSettings.parity = ps.parity;
+//    portSettings.responseTime = ps.responseTime;
+//    portSettings.stopBits = ps.stopBits;
+
+
+//}
+
 void Port::process_Port()
 {
     qDebug() << "Serial port" << this
              << "in thread" << this->thread()
              << "parent" << parent();
 
+    qRegisterMetaType<QSerialPort::SerialPortError>();
     connect(&thisPort, &QSerialPort::errorOccurred, this, &Port::handleError);
     connect(&thisPort, SIGNAL(readyRead()),this,SLOT(ReadInPort()));
 }
@@ -37,6 +54,12 @@ void Port::openPort()
 {
     thisPort.setPortName(portSettings.name);
     qDebug() << "Opening " << thisPort.portName();
+
+    qDebug() << "baudRate" << portSettings.baudRate;
+    qDebug() << "data bits" << portSettings.dataBits;
+    qDebug() << "parity" << portSettings.parity;
+    qDebug() << "stop bits" << portSettings.stopBits;
+    qDebug() << "FlowControl" << portSettings.flowControl;
 
     if (thisPort.open(QIODevice::ReadWrite))
     {
@@ -104,11 +127,11 @@ void Port::closePort()
     }
 }
 
-void Port::WriteToPort(QByteArray data)
+void Port::WriteToPort(QByteArray ba)
 {
     if ( thisPort.isOpen() ) {
-        thisPort.write(data);
-        qDebug() << data;
+        thisPort.write(ba);
+//        qDebug() << ">>>" << ba;
     }
 }
 
@@ -118,8 +141,8 @@ void Port::ReadInPort()
     {
         QByteArray data;
         data.append(thisPort.readAll());
+//        qDebug() << "<<<" << data;
         emit outPortByteArray(data);
-        emit outPortString(data);
     }
 }
 
