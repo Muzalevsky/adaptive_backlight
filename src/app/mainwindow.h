@@ -24,7 +24,6 @@ private:
     void            closeEvent(QCloseEvent *event);
 
     Ui::MainWindow  *ui;
-    QPixmap         pixmap;
     QSettings       *settings;
 
     Port            *led_serial;

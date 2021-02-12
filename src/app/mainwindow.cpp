@@ -121,12 +121,14 @@ void MainWindow::makeScreenShot()
     if (!width_nLed)
         return;
 
-    int px_per_led = screen->size().width() / width_nLed;
-
     /*
      * Start analyzing screenshot
      */
-    pixmap = screen->grabWindow(0);
+    QImage image = screen->grabWindow(0).toImage();
+
+    QSize image_size = image.size();
+    int px_per_led_w = image_size.width() / width_nLed;
+    int px_per_led_h = image_size.height() / height_nLed;
 
     /*
      * Here we create message for the LED controller in different cycles
@@ -141,54 +143,66 @@ void MainWindow::makeScreenShot()
 
     /* Top side */
     for (quint16 led_idx = 0; led_idx < width_nLed; led_idx++) {
-        QPixmap pixmap_per_led = pixmap.copy(px_per_led * led_idx, 0, px_per_led, px_per_led);
-        QImage img_per_led = pixmap_per_led.toImage();
+        QRect r(px_per_led_w * led_idx, 0, px_per_led_w, px_per_led_h);
+        QImage img_per_led = image.copy(r);
 
         // bilinear filtration
         QImage average_px = img_per_led.scaled(1,1,Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
         QColor color = QColor::fromRgba(average_px.pixel(0,0));
 
-        stream << static_cast<quint8>(color.red()) << static_cast<quint8>(color.green()) << static_cast<quint8>(color.blue());
-//        stream << static_cast<quint8>(0xFF) << static_cast<quint8>(0xFF) << static_cast<quint8>(0x00);
+//        qDebug() << led_idx << color;
 
+        stream << static_cast<quint8>(color.red())
+               << static_cast<quint8>(color.green())
+               << static_cast<quint8>(color.blue());
     }
 
     /* Right side */
-    for (quint16 led_idx = width_nLed; led_idx < width_nLed + height_nLed; led_idx++) {
-        QPixmap pixmap_per_led = pixmap.copy( pixmap.width() - px_per_led, px_per_led * led_idx, px_per_led, px_per_led);
-        QImage img_per_led = pixmap_per_led.toImage();
+    for (quint16 led_idx = 0; led_idx < height_nLed; led_idx++) {
+        QRect r(image_size.width() - px_per_led_w, px_per_led_h * led_idx, px_per_led_w, px_per_led_h);
+        QImage img_per_led = image.copy(r);
 
         // bilinear filtration
         QImage average_px = img_per_led.scaled(1,1,Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
         QColor color = QColor::fromRgba(average_px.pixel(0,0));
-        stream << static_cast<quint8>(color.red()) << static_cast<quint8>(color.green()) << static_cast<quint8>(color.blue());
-//        stream << static_cast<quint8>(0xFF) << static_cast<quint8>(0xFF) << static_cast<quint8>(0x00);
+//        qDebug() << led_idx << color;
+
+
+        stream << static_cast<quint8>(color.red())
+               << static_cast<quint8>(color.green())
+               << static_cast<quint8>(color.blue());
     }
 
     /* Bottom side */
-    for (quint16 led_idx = width_nLed + height_nLed; led_idx < (2 * width_nLed + height_nLed); led_idx++) {
-        QPixmap pixmap_per_led = pixmap.copy( pixmap.width() - px_per_led * led_idx, pixmap.height() - px_per_led, px_per_led, px_per_led);
-        QImage img_per_led = pixmap_per_led.toImage();
+    for (quint16 led_idx = 0; led_idx < width_nLed; led_idx++) {
+        QRect r(image_size.width() - px_per_led_w * (led_idx + 1), image_size.height() - px_per_led_h, px_per_led_w, px_per_led_h);
+        QImage img_per_led = image.copy(r);
 
         // bilinear filtration
         QImage average_px = img_per_led.scaled(1,1,Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
         QColor color = QColor::fromRgba(average_px.pixel(0,0));
-        stream << static_cast<quint8>(color.red()) << static_cast<quint8>(color.green()) << static_cast<quint8>(color.blue());
-//        stream << static_cast<quint8>(0xFF) << static_cast<quint8>(0xFF) << static_cast<quint8>(0x00);
 
+//        qDebug() << led_idx << color;
+
+        stream << static_cast<quint8>(color.red())
+               << static_cast<quint8>(color.green())
+               << static_cast<quint8>(color.blue());
     }
 
     /* Left side */
-    for (quint16 led_idx = (2 * width_nLed + height_nLed); led_idx < (2 * (width_nLed + height_nLed)); led_idx++) {
-        QPixmap pixmap_per_led = pixmap.copy( 0, pixmap.height() - px_per_led * led_idx, px_per_led, px_per_led);
-        QImage img_per_led = pixmap_per_led.toImage();
+    for (quint16 led_idx = 0; led_idx < height_nLed; led_idx++) {
+        QRect r(0, image_size.height() - px_per_led_h * (led_idx + 1), px_per_led_w, px_per_led_h);
+        QImage img_per_led = image.copy(r);
 
         // bilinear filtration
         QImage average_px = img_per_led.scaled(1,1,Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
         QColor color = QColor::fromRgba(average_px.pixel(0,0));
-        stream << static_cast<quint8>(color.red()) << static_cast<quint8>(color.green()) << static_cast<quint8>(color.blue());
-//        stream << static_cast<quint8>(0xFF) << static_cast<quint8>(0xFF) << static_cast<quint8>(0x00);
 
+//        qDebug() << led_idx << color;
+
+        stream << static_cast<quint8>(color.red())
+               << static_cast<quint8>(color.green())
+               << static_cast<quint8>(color.blue());
     }
 
     quint16 crc = crc16(reinterpret_cast<quint8*>(ba.data()), ba.length());
