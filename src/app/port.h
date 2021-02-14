@@ -5,7 +5,7 @@
 #include <QSerialPortInfo>
 #include <QVector>
 
-struct PortSettings {
+typedef struct {
     QString name;
     qint32 baudRate;
     int dataBits;
@@ -14,7 +14,9 @@ struct PortSettings {
     int flowControl;
     int responseTime;
     int numberOfRetries;
-};
+} PortSettings;
+
+Q_DECLARE_METATYPE(PortSettings)
 
 class Port : public QObject
 {
@@ -32,7 +34,7 @@ private:
 signals:
     void finished_Port();
     void outPortByteArray(QByteArray data);
-    void connectionStateChanged(bool isConnected);
+    void portStateChanged(bool isConnected);
 
 public slots:
     void closePort();
@@ -40,7 +42,7 @@ public slots:
     void process_Port();
     void WriteToPort(QByteArray ba);
     void ReadInPort();
-//    void setPortSettings(PortSettings& ps);
+    void setPortSettings(PortSettings ps);
 
 private slots:
     void handleError(QSerialPort::SerialPortError error);

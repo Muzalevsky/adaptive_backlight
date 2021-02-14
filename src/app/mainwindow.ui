@@ -25,16 +25,9 @@
     </property>
     <layout class="QVBoxLayout" name="verticalLayout">
      <item>
-      <widget class="QPushButton" name="startTimerButton">
+      <widget class="QPushButton" name="timerButton">
        <property name="text">
-        <string>Start screenshot timer</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="stopTimerButton">
-       <property name="text">
-        <string>Stop screenshot timer</string>
+        <string>Start</string>
        </property>
       </widget>
      </item>
@@ -67,6 +60,9 @@
       <widget class="QPushButton" name="openPortButton">
        <property name="text">
         <string>Подключиться</string>
+       </property>
+       <property name="checkable">
+        <bool>true</bool>
        </property>
       </widget>
      </item>

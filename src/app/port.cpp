@@ -23,21 +23,10 @@ Port::~Port()
     emit finished_Port();
 }
 
-//void Port::setPortSettings(PortSettings& ps)
-//{
-////    portSettings = ps;
-
-//    portSettings.baudRate = ps.baudRate;
-//    portSettings.dataBits = ps.dataBits;
-//    portSettings.flowControl = ps.flowControl;
-//    portSettings.name = ps.name;
-//    portSettings.numberOfRetries = ps.numberOfRetries;
-//    portSettings.parity = ps.parity;
-//    portSettings.responseTime = ps.responseTime;
-//    portSettings.stopBits = ps.stopBits;
-
-
-//}
+void Port::setPortSettings(PortSettings ps)
+{
+    portSettings = ps;
+}
 
 void Port::process_Port()
 {
@@ -47,7 +36,7 @@ void Port::process_Port()
 
     qRegisterMetaType<QSerialPort::SerialPortError>();
     connect(&thisPort, &QSerialPort::errorOccurred, this, &Port::handleError);
-    connect(&thisPort, SIGNAL(readyRead()),this,SLOT(ReadInPort()));
+    connect(&thisPort, SIGNAL(readyRead()),this,SLOT(ReadInPort()));    
 }
 
 void Port::openPort()
@@ -72,12 +61,14 @@ void Port::openPort()
             if ( thisPort.isOpen() )
             {
                 qDebug() << portSettings.name + " >> Open!";
+                emit portStateChanged(true);
                 thisPort.clear();
             }
         }
         else
         {
             thisPort.close();
+            emit portStateChanged(false);
             qDebug() << thisPort.errorString();
         }
     }
@@ -100,6 +91,7 @@ void Port::handleError(QSerialPort::SerialPortError error)
          */
         case QSerialPort::DeviceNotFoundError:
             thisPort.close();
+            emit portStateChanged(false);
         break;
 
         /*
@@ -108,6 +100,7 @@ void Port::handleError(QSerialPort::SerialPortError error)
          */
         case QSerialPort::ResourceError:
             thisPort.close();
+            emit portStateChanged(false);
         break;
 
         case QSerialPort::TimeoutError:
@@ -124,6 +117,7 @@ void Port::closePort()
         thisPort.clear( QSerialPort::AllDirections );
         thisPort.close();
         qDebug() << portSettings.name << " >> Close!";
+        emit portStateChanged(false);
     }
 }
 
@@ -144,9 +138,4 @@ void Port::ReadInPort()
 //        qDebug() << "<<<" << data;
         emit outPortByteArray(data);
     }
-}
-
-bool Port::isOpened()
-{
-    return thisPort.isOpen();
 }

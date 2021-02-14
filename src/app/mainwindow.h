@@ -1,14 +1,15 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QMainWindow>
 #include <QByteArray>
 #include <QCloseEvent>
+#include <QMainWindow>
 #include <QSettings>
 #include <QTimer>
 
 #include <port.h>
 #include <settingsdialog.h>
+
 namespace Ui {
 class MainWindow;
 }
@@ -28,7 +29,7 @@ private:
 
     Port            *led_serial;
     QTimer          *screenshot_timer;
-    uint16_t        nLed;
+    bool            isTimerEnabled;
     uint16_t        dev_id;
     uint16_t        width_nLed;
     uint16_t        height_nLed;
@@ -37,25 +38,24 @@ private:
 //    PortSettings    portSettings;
 
 public slots:
-    void makeScreenShot();
     void parseAnswer(QByteArray ba);
+    void serialPortConnected(bool isConnected);
+
 signals:
     void updateLeds(QByteArray);
     void openPort();
     void closePort();
-//    void setPortSettings(PortSettings&);
+    void setPortSettings(PortSettings);
 
 private slots:
-    void startScreenshotTimer();
-    void stopScreenshotTimer();
-
+    void connectSerialPortClicked();
     void getId();
     void getParams();
     void loadSettings();
-    void writeSettings();
-    void connectSerialPortClicked();
-
+    void makeScreenShot();
     void on_serialSettingsButton_clicked();
+    void timerButtonClicked();
+    void writeSettings();
 };
 
 #endif // MAINWINDOW_H

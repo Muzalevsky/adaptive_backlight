@@ -12,7 +12,8 @@
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
-    ui(new Ui::MainWindow)
+    ui(new Ui::MainWindow),
+    isTimerEnabled(false)
 {
     ui->setupUi(this);
 
@@ -27,11 +28,19 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(led_serial, SIGNAL(finished_Port()), threadLed, SLOT(deleteLater()));
     connect(led_serial, SIGNAL(finished_Port()), threadLed, SLOT(quit()));
 
-//    connect(this, SIGNAL(openPort()), led_serial, SLOT(openPort()));
-//    connect(this, SIGNAL(closePort()), led_serial, SLOT(closePort()));
+    connect(this, SIGNAL(openPort()), led_serial, SLOT(openPort()), Qt::QueuedConnection);
+    connect(this, SIGNAL(closePort()), led_serial, SLOT(closePort()), Qt::QueuedConnection);
 
-    connect(threadLed, SIGNAL(started()), led_serial, SLOT(process_Port()));//Переназначения метода run
-    connect(threadLed, SIGNAL(finished()), led_serial, SLOT(deleteLater()));//Удалить к чертям поток
+    connect(led_serial, &Port::portStateChanged, this, &MainWindow::serialPortConnected, Qt::QueuedConnection);
+
+    if (QMetaType::type("PortSettings") == QMetaType::UnknownType) {
+       qRegisterMetaType<PortSettings>("PortSettings");
+    }
+
+    connect(this,&MainWindow::setPortSettings, led_serial, &Port::setPortSettings, Qt::QueuedConnection);
+
+    connect(threadLed, SIGNAL(started()), led_serial, SLOT(process_Port()));
+    connect(threadLed, SIGNAL(finished()), led_serial, SLOT(deleteLater()));
     threadLed->start();
 
     connect( this, &MainWindow::updateLeds, led_serial, &Port::WriteToPort, Qt::QueuedConnection );
@@ -46,9 +55,7 @@ MainWindow::MainWindow(QWidget *parent) :
      */
     screenshot_timer = new QTimer(this);
     connect(screenshot_timer, &QTimer::timeout, this, &MainWindow::makeScreenShot);
-    connect(ui->stopTimerButton, &QPushButton::clicked, this, &MainWindow::stopScreenshotTimer);
-    connect(ui->startTimerButton, &QPushButton::clicked, this, &MainWindow::startScreenshotTimer);
-//    connect(this, &MainWindow::setPortSettings, led_serial, &Port::setPortSettings);
+    connect(ui->timerButton, &QPushButton::clicked, this, &MainWindow::timerButtonClicked);
 
     /*
      * Testing buttons
@@ -93,15 +100,17 @@ void MainWindow::getParams()
     emit updateLeds(ba);
 }
 
-
-void MainWindow::startScreenshotTimer()
+void MainWindow::timerButtonClicked()
 {
-    screenshot_timer->start(timer_delay_ms);
-}
-
-void MainWindow::stopScreenshotTimer()
-{
-    screenshot_timer->stop();
+    if (!isTimerEnabled) {
+        isTimerEnabled = true;
+        screenshot_timer->start(timer_delay_ms);
+        ui->timerButton->setText(tr("Stop"));
+    } else {
+        isTimerEnabled = false;
+        screenshot_timer->stop();
+        ui->timerButton->setText(tr("Start"));
+    }
 }
 
 void MainWindow::parseAnswer(QByteArray ba)
@@ -118,39 +127,39 @@ void MainWindow::makeScreenShot()
     if (!screen)
         return;
 
-    if (!width_nLed)
+    if (width_nLed == 0 || height_nLed == 0)
         return;
 
     /*
-     * Start analyzing screenshot
+     * Get screenshot as image
      */
     QImage image = screen->grabWindow(0).toImage();
-
     QSize image_size = image.size();
     int px_per_led_w = image_size.width() / width_nLed;
     int px_per_led_h = image_size.height() / height_nLed;
 
     /*
-     * Here we create message for the LED controller in different cycles
-     * for different sides of the screen
+     * Start creating message for the LED controller
+     * Each side is in its cycle
      */
     QByteArray ba;
     QDataStream stream(&ba, QIODevice::WriteOnly);
-//    stream.setVersion(QDataStream::Qt_5_10);
     stream.setByteOrder( QDataStream::LittleEndian );
 
+    /*
+     * First two bytes. Check protocol
+     */
     stream << static_cast<quint8>(dev_id) << static_cast<quint8>(Commands::SET_LED_COLOR);
 
     /* Top side */
     for (quint16 led_idx = 0; led_idx < width_nLed; led_idx++) {
         QRect r(px_per_led_w * led_idx, 0, px_per_led_w, px_per_led_h);
         QImage img_per_led = image.copy(r);
-
-        // bilinear filtration
+        /*
+         * Trying to apply bilinear filter to get average image color
+         */
         QImage average_px = img_per_led.scaled(1,1,Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
         QColor color = QColor::fromRgba(average_px.pixel(0,0));
-
-//        qDebug() << led_idx << color;
 
         stream << static_cast<quint8>(color.red())
                << static_cast<quint8>(color.green())
@@ -162,11 +171,8 @@ void MainWindow::makeScreenShot()
         QRect r(image_size.width() - px_per_led_w, px_per_led_h * led_idx, px_per_led_w, px_per_led_h);
         QImage img_per_led = image.copy(r);
 
-        // bilinear filtration
         QImage average_px = img_per_led.scaled(1,1,Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
         QColor color = QColor::fromRgba(average_px.pixel(0,0));
-//        qDebug() << led_idx << color;
-
 
         stream << static_cast<quint8>(color.red())
                << static_cast<quint8>(color.green())
@@ -178,11 +184,8 @@ void MainWindow::makeScreenShot()
         QRect r(image_size.width() - px_per_led_w * (led_idx + 1), image_size.height() - px_per_led_h, px_per_led_w, px_per_led_h);
         QImage img_per_led = image.copy(r);
 
-        // bilinear filtration
         QImage average_px = img_per_led.scaled(1,1,Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
         QColor color = QColor::fromRgba(average_px.pixel(0,0));
-
-//        qDebug() << led_idx << color;
 
         stream << static_cast<quint8>(color.red())
                << static_cast<quint8>(color.green())
@@ -194,11 +197,8 @@ void MainWindow::makeScreenShot()
         QRect r(0, image_size.height() - px_per_led_h * (led_idx + 1), px_per_led_w, px_per_led_h);
         QImage img_per_led = image.copy(r);
 
-        // bilinear filtration
         QImage average_px = img_per_led.scaled(1,1,Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
         QColor color = QColor::fromRgba(average_px.pixel(0,0));
-
-//        qDebug() << led_idx << color;
 
         stream << static_cast<quint8>(color.red())
                << static_cast<quint8>(color.green())
@@ -211,6 +211,7 @@ void MainWindow::makeScreenShot()
     stream << static_cast<quint8>(crc_l) << static_cast<quint8>(crc_h);
 
 //    qDebug() << ba;
+
     emit updateLeds(ba);
 }
 
@@ -255,35 +256,45 @@ void MainWindow::loadSettings()
     width_nLed = settings->value("led_params/widthInLed", 35).toInt();
     height_nLed = settings->value("led_params/heightInLed", 15).toInt();
 
-    nLed = ( width_nLed + height_nLed ) * 2;
+    PortSettings portSettings;
 
-    led_serial->portSettings.name = (settings->value("led_controller/port").toString());
+    portSettings.name = (settings->value("led_controller/port").toString());
     int led_controller_baud = settings->value("led_controller/baud").toInt();
-    led_serial->portSettings.baudRate = led_controller_baud;
+    portSettings.baudRate = led_controller_baud;
 
-    led_serial->portSettings.dataBits = settings->value("led_controller/dataBits").toInt();
-    led_serial->portSettings.flowControl = settings->value("led_controller/flow").toInt();
-    led_serial->portSettings.parity = settings->value("led_controller/parity").toInt();
-    led_serial->portSettings.stopBits = settings->value("led_controller/stopBits").toInt();
+    portSettings.dataBits = settings->value("led_controller/dataBits").toInt();
+    portSettings.flowControl = settings->value("led_controller/flow").toInt();
+    portSettings.parity = settings->value("led_controller/parity").toInt();
+    portSettings.stopBits = settings->value("led_controller/stopBits").toInt();
     dev_id = settings->value("led_controller/device_id").toInt();
 
-    qDebug() << "LED controller" << led_serial->portSettings.name << " /baud " << led_controller_baud;
+    qDebug() << "LED controller" << portSettings.name << " /baud " << led_controller_baud;
 
-//    emit setPortSettings(portSettings);
+    emit setPortSettings(portSettings);
 
     qDebug() << "Настройки считаны";
 }
 
 void MainWindow::connectSerialPortClicked()
 {
-    if (!led_serial->isOpened()) {
-        led_serial->openPort();
-        if (led_serial->isOpened())
-            ui->openPortButton->setText("Отключиться");
+    qDebug() << "Clicked";
+    qDebug() << "ui->openPortButton->isChecked()" << ui->openPortButton->isChecked();
+
+    if (ui->openPortButton->isChecked()) {
+        emit openPort();
     } else {
-        led_serial->closePort();
-        if (!led_serial->isOpened())
-            ui->openPortButton->setText("Подключиться");
+        emit closePort();
+    }
+}
+
+void MainWindow::serialPortConnected(bool isConnected)
+{
+    if (isConnected) {
+        ui->openPortButton->setText(tr("Disconnect"));
+    } else {
+        ui->openPortButton->setText(tr("Connect"));
+        if (ui->openPortButton->isChecked())
+            ui->openPortButton->setChecked(false);
     }
 }
 
