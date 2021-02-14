@@ -7,6 +7,7 @@
 #include <QSettings>
 #include <QTimer>
 
+#include <controllerprotocol.h>
 #include <port.h>
 #include <settingsdialog.h>
 
@@ -22,35 +23,38 @@ public:
     ~MainWindow();
 
 private:
-    void            closeEvent(QCloseEvent *event);
+    void                closeEvent(QCloseEvent *event);
 
-    Ui::MainWindow  *ui;
-    QSettings       *settings;
+    Ui::MainWindow      *ui;
+    ControllerProtocol  *controllerProto;
+    QSettings           *settings;
+    Port                *led_serial;
+    QTimer              *screenshot_timer;
 
-    Port            *led_serial;
-    QTimer          *screenshot_timer;
-    bool            isTimerEnabled;
-    uint16_t        dev_id;
-    uint16_t        width_nLed;
-    uint16_t        height_nLed;
-    int             timer_delay_ms;
+    bool                isTimerEnabled;
+    uint16_t            dev_id;
+    uint16_t            width_nLed;
+    uint16_t            height_nLed;
+    int                 timer_delay_ms;
 
-//    PortSettings    portSettings;
 
 public slots:
-    void parseAnswer(QByteArray ba);
     void serialPortConnected(bool isConnected);
 
 signals:
-    void updateLeds(QByteArray);
-    void openPort();
     void closePort();
+    void openPort();
     void setPortSettings(PortSettings);
+    void writeToPort(QByteArray);
 
 private slots:
+    void assignNewBrightness(int br);
+    void assignNewId(int id);
+    void assignNewLedNumber(int led_per_side);
+
     void connectSerialPortClicked();
-    void getId();
-    void getParams();
+    void requestDeviceId();
+    void requestDeviceParams();
     void loadSettings();
     void makeScreenShot();
     void on_serialSettingsButton_clicked();

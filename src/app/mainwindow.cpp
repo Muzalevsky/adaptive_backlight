@@ -7,17 +7,23 @@
 #include <QThread>
 #include <QTimer>
 
-#include <controllerprotocol.h>
 #include <crc_calc.h>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
+    controllerProto(new ControllerProtocol(this)),
     isTimerEnabled(false)
 {
     ui->setupUi(this);
 
     settings = new QSettings( "settings.ini", QSettings::IniFormat );
+
+    /*
+     * Handle for the protocol correect commands
+     */
+    connect(controllerProto, &ControllerProtocol::getIdFromDevice, ui->deviceIdBox, &QSpinBox::setValue);
+    connect(controllerProto, &ControllerProtocol::getBrightnessFromDevice, ui->brightnessSlider, &QSlider::setValue);
 
     /*
      * Custom class for serial port. Let's try to place and handle in another thread
@@ -27,26 +33,32 @@ MainWindow::MainWindow(QWidget *parent) :
     led_serial->moveToThread(threadLed);
     connect(led_serial, SIGNAL(finished_Port()), threadLed, SLOT(deleteLater()));
     connect(led_serial, SIGNAL(finished_Port()), threadLed, SLOT(quit()));
-
-    connect(this, SIGNAL(openPort()), led_serial, SLOT(openPort()), Qt::QueuedConnection);
-    connect(this, SIGNAL(closePort()), led_serial, SLOT(closePort()), Qt::QueuedConnection);
-
-    connect(led_serial, &Port::portStateChanged, this, &MainWindow::serialPortConnected, Qt::QueuedConnection);
-
-    if (QMetaType::type("PortSettings") == QMetaType::UnknownType) {
-       qRegisterMetaType<PortSettings>("PortSettings");
-    }
-
-    connect(this,&MainWindow::setPortSettings, led_serial, &Port::setPortSettings, Qt::QueuedConnection);
-
     connect(threadLed, SIGNAL(started()), led_serial, SLOT(process_Port()));
     connect(threadLed, SIGNAL(finished()), led_serial, SLOT(deleteLater()));
+
+    connect(led_serial, &Port::portStateChanged, this, &MainWindow::serialPortConnected, Qt::QueuedConnection);
+    connect(led_serial, &Port::outPortByteArray, controllerProto, &ControllerProtocol::parseAnswer, Qt::QueuedConnection);
+
+    connect(this, &MainWindow::openPort, led_serial, &Port::openPort, Qt::QueuedConnection);
+    connect(this, &MainWindow::closePort, led_serial, &Port::closePort, Qt::QueuedConnection);
+    connect(this, &MainWindow::writeToPort, led_serial, &Port::WriteToPort, Qt::QueuedConnection );
+
+    if (QMetaType::type("PortSettings") == QMetaType::UnknownType)
+       qRegisterMetaType<PortSettings>("PortSettings");
+
+    connect(this, &MainWindow::setPortSettings, led_serial, &Port::setPortSettings, Qt::QueuedConnection);
+
     threadLed->start();
 
-    connect( this, &MainWindow::updateLeds, led_serial, &Port::WriteToPort, Qt::QueuedConnection );
-    connect(ui->openPortButton, &QPushButton::clicked, this, &MainWindow::connectSerialPortClicked);
 
-    connect(led_serial, &Port::outPortByteArray, this, &MainWindow::parseAnswer, Qt::QueuedConnection);
+    /*
+     * GUI feedback interconnection
+     */
+    connect(ui->openPortButton, &QPushButton::clicked, this, &MainWindow::connectSerialPortClicked);
+    connect(ui->heightLedBox, SIGNAL(valueChanged(int)), this, SLOT(assignNewLedNumber(int)));
+    connect(ui->heightLedBox, SIGNAL(valueChanged(int)), this, SLOT(assignNewLedNumber(int)));
+    connect(ui->deviceIdBox, SIGNAL(valueChanged(int)), this, SLOT(assignNewId(int)));
+    connect(ui->brightnessSlider, &QSlider::valueChanged, this, &MainWindow::assignNewBrightness);
 
     loadSettings();
 
@@ -57,12 +69,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(screenshot_timer, &QTimer::timeout, this, &MainWindow::makeScreenShot);
     connect(ui->timerButton, &QPushButton::clicked, this, &MainWindow::timerButtonClicked);
 
-    /*
-     * Testing buttons
-     */
-    connect(ui->getIdButton, &QPushButton::clicked, this, &MainWindow::getId);
-    connect(ui->getParamsButton, &QPushButton::clicked, this, &MainWindow::getParams);
-
+    setWindowTitle(tr("Adaptive backlight"));
 }
 
 MainWindow::~MainWindow()
@@ -70,34 +77,50 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::getId()
+void MainWindow::requestDeviceId()
 {
     QByteArray ba;
-    QDataStream stream(&ba, QIODevice::WriteOnly);
-    stream.setByteOrder( QDataStream::LittleEndian );
-
-    stream << static_cast<quint8>(0xFF) << static_cast<quint8>(Commands::GET_ID);
-    quint16 crc = crc16(reinterpret_cast<quint8*>(ba.data()), ba.length());
-    quint8 crc_h = (crc >> 8) & 0xFF;
-    quint8 crc_l = crc & 0xFF;
-    stream << static_cast<quint8>(crc_l) << static_cast<quint8>(crc_h);
+    controllerProto->getId(ba);
     qDebug() << ba;
-    emit updateLeds(ba);
+    emit writeToPort(ba);
 }
 
-void MainWindow::getParams()
+void MainWindow::requestDeviceParams()
+{
+    QByteArray ba;    
+    controllerProto->getParams(ba);
+    qDebug() << ba;
+    emit writeToPort(ba);
+}
+
+void MainWindow::assignNewId(int id)
 {
     QByteArray ba;
-    QDataStream stream(&ba, QIODevice::WriteOnly);
-    stream.setByteOrder( QDataStream::LittleEndian );
-
-    stream << static_cast<quint8>(13) << static_cast<quint8>(Commands::GET_PARAMS);
-    quint16 crc = crc16(reinterpret_cast<quint8*>(ba.data()), ba.length());
-    quint8 crc_h = (crc >> 8) & 0xFF;
-    quint8 crc_l = crc & 0xFF;
-    stream << static_cast<quint8>(crc_l) << static_cast<quint8>(crc_h);
+    controllerProto->setId(ba,id);
     qDebug() << ba;
-    emit updateLeds(ba);
+    emit writeToPort(ba);
+}
+
+void MainWindow::assignNewLedNumber(int led_per_side)
+{
+    if (sender() == ui->heightLedBox)
+        height_nLed = led_per_side;
+
+    if (sender() == ui->widthLedBox)
+        width_nLed = led_per_side;
+
+    QByteArray ba;
+    controllerProto->setLedNumber(ba, 2 * (height_nLed + width_nLed));
+    qDebug() << ba;
+    emit writeToPort(ba);
+}
+
+void MainWindow::assignNewBrightness(int br)
+{
+    QByteArray ba;
+    controllerProto->setBrightness(ba, br);
+    qDebug() << ba;
+    emit writeToPort(ba);
 }
 
 void MainWindow::timerButtonClicked()
@@ -111,11 +134,6 @@ void MainWindow::timerButtonClicked()
         screenshot_timer->stop();
         ui->timerButton->setText(tr("Start"));
     }
-}
-
-void MainWindow::parseAnswer(QByteArray ba)
-{
-    qDebug() << ba;
 }
 
 void MainWindow::makeScreenShot()
@@ -149,7 +167,7 @@ void MainWindow::makeScreenShot()
     /*
      * First two bytes. Check protocol
      */
-    stream << static_cast<quint8>(dev_id) << static_cast<quint8>(Commands::SET_LED_COLOR);
+    stream << static_cast<quint8>(controllerProto->id) << static_cast<quint8>(Commands::SET_LED_COLOR);
 
     /* Top side */
     for (quint16 led_idx = 0; led_idx < width_nLed; led_idx++) {
@@ -212,7 +230,7 @@ void MainWindow::makeScreenShot()
 
 //    qDebug() << ba;
 
-    emit updateLeds(ba);
+    emit writeToPort(ba);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -236,7 +254,7 @@ void MainWindow::writeSettings()
     settings->setValue("led_controller/flow", QString::number(led_serial->portSettings.flowControl));
     settings->setValue("led_controller/parity", QString::number(led_serial->portSettings.parity));
     settings->setValue("led_controller/stopBits", QString::number(led_serial->portSettings.stopBits));
-    settings->setValue("led_controller/device_id", dev_id);
+//    settings->setValue("led_controller/device_id", dev_id);
 
     settings->sync();
     qDebug() << "Настройки сохранены";
@@ -255,18 +273,17 @@ void MainWindow::loadSettings()
 
     width_nLed = settings->value("led_params/widthInLed", 35).toInt();
     height_nLed = settings->value("led_params/heightInLed", 15).toInt();
+    ui->heightLedBox->setValue(height_nLed);
+    ui->widthLedBox->setValue(width_nLed);
 
     PortSettings portSettings;
-
     portSettings.name = (settings->value("led_controller/port").toString());
     int led_controller_baud = settings->value("led_controller/baud").toInt();
     portSettings.baudRate = led_controller_baud;
-
     portSettings.dataBits = settings->value("led_controller/dataBits").toInt();
     portSettings.flowControl = settings->value("led_controller/flow").toInt();
     portSettings.parity = settings->value("led_controller/parity").toInt();
     portSettings.stopBits = settings->value("led_controller/stopBits").toInt();
-    dev_id = settings->value("led_controller/device_id").toInt();
 
     qDebug() << "LED controller" << portSettings.name << " /baud " << led_controller_baud;
 
@@ -277,9 +294,6 @@ void MainWindow::loadSettings()
 
 void MainWindow::connectSerialPortClicked()
 {
-    qDebug() << "Clicked";
-    qDebug() << "ui->openPortButton->isChecked()" << ui->openPortButton->isChecked();
-
     if (ui->openPortButton->isChecked()) {
         emit openPort();
     } else {
@@ -291,6 +305,8 @@ void MainWindow::serialPortConnected(bool isConnected)
 {
     if (isConnected) {
         ui->openPortButton->setText(tr("Disconnect"));
+        requestDeviceId();
+        requestDeviceParams();
     } else {
         ui->openPortButton->setText(tr("Connect"));
         if (ui->openPortButton->isChecked())
@@ -298,11 +314,11 @@ void MainWindow::serialPortConnected(bool isConnected)
     }
 }
 
+/*
+ * GUI for manual serial port settings
+ */
 void MainWindow::on_serialSettingsButton_clicked()
 {
-    /*
-     * When user push the button, we create and show GUI for serial port settings
-     */
     SettingsDialog  *m_settingsDialog = new SettingsDialog(led_serial->portSettings, this);
     m_settingsDialog->show();
 }
