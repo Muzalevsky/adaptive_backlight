@@ -63,7 +63,7 @@ static const quint8 table_crc_lo[] = {
 0x43, 0x83, 0x41, 0x81, 0x80, 0x40
 };
 
-quint16 crc16(quint8* buf, quint16 buf_length)
+static quint16 crc16(quint8* buf, quint16 buf_length)
 {
     quint8 crc_hi = 0xFF; // high CRC byte initialized
     quint8 crc_lo = 0xFF; // low CRC byte initialized
