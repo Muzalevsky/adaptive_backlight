@@ -20,7 +20,7 @@ MainWindow::MainWindow(QWidget *parent) :
     settings = new QSettings( "settings.ini", QSettings::IniFormat );
 
     /*
-     * Handle for the protocol correect commands
+     * Handle for the protocol correct commands
      */
     connect(controllerProto, &ControllerProtocol::getIdFromDevice, ui->deviceIdBox, &QSpinBox::setValue);
     connect(controllerProto, &ControllerProtocol::getBrightnessFromDevice, ui->brightnessSlider, &QSlider::setValue);
@@ -285,7 +285,7 @@ void MainWindow::loadSettings()
     portSettings.parity = settings->value("led_controller/parity").toInt();
     portSettings.stopBits = settings->value("led_controller/stopBits").toInt();
 
-    qDebug() << "LED controller" << portSettings.name << " /baud " << led_controller_baud;
+    qDebug() << "Read from config: port " << portSettings.name << " /baud " << led_controller_baud;
 
     emit setPortSettings(portSettings);
 
