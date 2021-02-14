@@ -1,94 +1,139 @@
-//#include "controllerprotocol.h"
-//#include <QDataStream>
-//#include <QDebug>
+#include <QDataStream>
+#include <QDebug>
 
-//#include <crc_calc.h>
+#include "controllerprotocol.h"
+#include <crc_calc.h>
 
-//ControllerProtocol::ControllerProtocol()
-//{
 
-//}
+ControllerProtocol::ControllerProtocol(QObject *parent) :
+    QObject(parent),
+    id(0),
+    ledNumber(0),
+    brightness(0)
+{
 
-//void ControllerProtocol::addCrcToArray(QByteArray& ba)
-//{
-//    uint16_t crc = crc16(static_cast<uint8_t*>(ba.data()), ba.length());
-//    uint8_t crc_h = (crc >> 8) & 0xFF;
-//    uint8_t crc_l = crc & 0xFF;
-//    ba << crc_l << crc_h;
-//}
+}
 
-//void ControllerProtocol::getId()
-//{
-////    Структура фрейма запроса(к устройству): [0xFF][0x00][CRC16_L][CRC16_H]
-//    QByteArray ba;
-//    QDataStream stream(&ba, QIODevice::WriteOnly);
-//    stream.setVersion(QDataStream::Qt_5_10);
-//    stream.setByteOrder( QDataStream::LittleEndian );
+void ControllerProtocol::parseAnswer(QByteArray ba)
+{
+    uint8_t _cmd = ba[1];
+    Commands cmd = static_cast<Commands>(_cmd);
+    switch (cmd)
+    {
+        case Commands::GET_ID:
+        {
+            id = ba[0];
+            qDebug() << "<< GET_ID:" << id;
+            emit getIdFromDevice(id);
+            break;
+        }
+        case Commands::SET_LED_NUMBER:
+        {
+            bool ok = ba[2];
+            qDebug() << "<< SET_LED_NUMBER:" << ledNumber << (ok ? "ok" : "failed");
+            break;
+        }
+        case Commands::SET_BRIGHTNESS:
+        {
+            bool ok = ba[2];
+            qDebug() << "<< SET_BRIGHTNESS:" << brightness << (ok ? "ok" : "failed");
+            break;
+        }
+        case Commands::GET_PARAMS:
+        {
+            id = ba[0];
+            qDebug() << "<< GET_PARAMS:" << id;
 
-//    stream << broadcast_id << Commands::GET_ID;
-//    addCrcToArray(ba);
+            ledNumber = ba[2] * 10 + ba[3];
+            brightness = ba[4] * 10 + ba[5];
+            emit getBrightnessFromDevice(brightness);
+            break;
+        }
+        case Commands::SET_ID:
+        {
+            id = ba[0];
+            qDebug() << "<< SET_ID:" << id;
+            break;
+        }
+        case Commands::SET_LED_COLOR:
+            break;
+        default:
+            qDebug() << "Response error ";
+            break;
+    }
+}
 
-//    send(ba);
-//}
+//    Структура фрейма запроса(к устройству): [0xFF][0x00][CRC16_L][CRC16_H]
+void ControllerProtocol::getId(QByteArray ba)
+{
+    QDataStream stream(&ba, QIODevice::WriteOnly);
+    stream.setByteOrder( QDataStream::LittleEndian );
 
+    stream << static_cast<quint8>(broadcast_id) << static_cast<quint8>(Commands::GET_ID);
+    quint16 crc = crc16(reinterpret_cast<quint8*>(ba.data()), ba.length());
+    quint8 crc_h = (crc >> 8) & 0xFF;
+    quint8 crc_l = crc & 0xFF;
+    stream << static_cast<quint8>(crc_l) << static_cast<quint8>(crc_h);
+}
 ////Структура фрейма ответа(от устройства): [ID][0x00][CRC16_L][CRC16_H]
 ////[ID] - ID устройства;
 ////[0x00] - команда;
 
 
-//void ControllerProtocol::setLedNumber(int nLed)
-//{
-////    Структура фрейма запроса(к устройству): [ID][0x01][LED1][LED2][CRC16_L][CRC16_H]
-//    QByteArray ba;
-//    QDataStream stream(&ba, QIODevice::WriteOnly);
-//    stream.setVersion(QDataStream::Qt_5_10);
-//    stream.setByteOrder( QDataStream::LittleEndian );
+//    Структура фрейма запроса(к устройству): [ID][0x01][LED1][LED2][CRC16_L][CRC16_H]
+void ControllerProtocol::setLedNumber(QByteArray ba, int nLed)
+{
+    ledNumber = nLed;
+    QDataStream stream(&ba, QIODevice::WriteOnly);
+    stream.setVersion(QDataStream::Qt_5_10);
+    stream.setByteOrder( QDataStream::LittleEndian );
 
-//    stream << id << Commands::SET_LED_NUMBER << nLed / 10 << nLed % 10;
-
-//    addCrcToArray(ba);
-
-//    send(ba);
-//}
-
+    stream << static_cast<quint8>(id) << static_cast<quint8>(Commands::SET_LED_NUMBER);
+    stream << static_cast<quint8>(ledNumber / 10) << static_cast<quint8>(ledNumber % 10);
+    quint16 crc = crc16(reinterpret_cast<quint8*>(ba.data()), ba.length());
+    quint8 crc_h = (crc >> 8) & 0xFF;
+    quint8 crc_l = crc & 0xFF;
+    stream << static_cast<quint8>(crc_l) << static_cast<quint8>(crc_h);
+}
 ////Структура фрейма ответа(от устройства): [ID][0x01][OK][CRC16_L][CRC16_H]
 ////[ID] - ID устройства;
 ////[0x01] - команда;
 ////[OK] - статус(0 - не выполнено; 1 - выполнено);
 
-//void ControllerProtocol::setBrightness(int br)
-//{
-////    Структура фрейма запроса(к устройству): [ID][0x02][BR1][BR2][CRC16_L][CRC16_H]
-//    QByteArray ba;
-//    QDataStream stream(&ba, QIODevice::WriteOnly);
-//    stream.setVersion(QDataStream::Qt_5_10);
-//    stream.setByteOrder( QDataStream::LittleEndian );
+//    Структура фрейма запроса(к устройству): [ID][0x02][BR1][BR2][CRC16_L][CRC16_H]
+void ControllerProtocol::setBrightness(QByteArray ba, int br)
+{
+    brightness = br;
 
-//    stream << id << Commands::SET_BRIGHTNESS << br / 10 << br % 10;
-//    addCrcToArray(ba);
+    QDataStream stream(&ba, QIODevice::WriteOnly);
+    stream.setVersion(QDataStream::Qt_5_10);
+    stream.setByteOrder( QDataStream::LittleEndian );
 
-//    send(ba);
-//}
-
+    stream << static_cast<quint8>(id) << static_cast<quint8>(Commands::SET_BRIGHTNESS);
+    stream << static_cast<quint8>(brightness / 10) << static_cast<quint8>(brightness % 10);
+    quint16 crc = crc16(reinterpret_cast<quint8*>(ba.data()), ba.length());
+    quint8 crc_h = (crc >> 8) & 0xFF;
+    quint8 crc_l = crc & 0xFF;
+    stream << static_cast<quint8>(crc_l) << static_cast<quint8>(crc_h);
+}
 ////Структура фрейма ответа(от устройства): [ID][0x02][OK][CRC16_L][CRC16_H]
 ////[ID] - ID устройства;
 ////[0x02] - команда;
 ////[OK] - статус(0 - не выполнено; 1 - выполнено);
 
-//void ControllerProtocol::getParams()
-//{
-////    Структура фрейма запроса(к устройству): [ID][0x03][CRC16_L][CRC16_H]
-//    QByteArray ba;
-//    QDataStream stream(&ba, QIODevice::WriteOnly);
-//    stream.setVersion(QDataStream::Qt_5_10);
-//    stream.setByteOrder( QDataStream::LittleEndian );
+//    Структура фрейма запроса(к устройству): [ID][0x03][CRC16_L][CRC16_H]
+void ControllerProtocol::getParams(QByteArray ba)
+{
+    QDataStream stream(&ba, QIODevice::WriteOnly);
+    stream.setVersion(QDataStream::Qt_5_10);
+    stream.setByteOrder( QDataStream::LittleEndian );
 
-//    stream << id << Commands::GET_PARAMS;
-//    addCrcToArray(ba);
-
-//    send(ba);
-//}
-
+    stream << static_cast<quint8>(id) << static_cast<quint8>(Commands::GET_PARAMS);
+    quint16 crc = crc16(reinterpret_cast<quint8*>(ba.data()), ba.length());
+    quint8 crc_h = (crc >> 8) & 0xFF;
+    quint8 crc_l = crc & 0xFF;
+    stream << static_cast<quint8>(crc_l) << static_cast<quint8>(crc_h);
+}
 ////Структура фрейма ответа(от устройства): [ID][0x03][LED1][LED2][BR1][BR2][CRC16_L][CRC16_H]
 ////[ID] - ID устройства;
 ////[0x03] - команда;
@@ -99,51 +144,23 @@
 ////[BR2] - яркость без мультипликатора;
 ////Установленная яркость будет равна BR1x10 + BR2.
 
-//void ControllerProtocol::setLedColor( QVector<QRgb> colors)
-//{
-////    Структура фрейма запроса(к устройству): [ID][0x04][R1][G1][B1]...[Rn][Gn][Bn][CRC16_L][CRC16_H]
-//    QByteArray ba;
-//    QDataStream stream(&ba, QIODevice::WriteOnly);
-//    stream.setVersion(QDataStream::Qt_5_10);
-//    stream.setByteOrder( QDataStream::LittleEndian );
 
-//    stream << id << Commands::SET_LED_COLOR << colors.data();
-//    addCrcToArray(ba);
+//    Структура фрейма запроса(к устройству): [ID][0x05][ID_new][CRC16_L][CRC16_H]
+void ControllerProtocol::setId(QByteArray ba, int new_id)
+{
+    QDataStream stream(&ba, QIODevice::WriteOnly);
+    stream.setVersion(QDataStream::Qt_5_10);
+    stream.setByteOrder( QDataStream::LittleEndian );
 
-//    send(ba);
-//}
-////Ответ не отправляется.
-
-//void ControllerProtocol::setId(int new_id)
-//{
-////    Структура фрейма запроса(к устройству): [ID][0x05][ID_new][CRC16_L][CRC16_H]
-//    QByteArray ba;
-//    QDataStream stream(&ba, QIODevice::WriteOnly);
-//    stream.setVersion(QDataStream::Qt_5_10);
-//    stream.setByteOrder( QDataStream::LittleEndian );
-
-//    stream << id << Commands::SET_ID << new_id;
-//    addCrcToArray(ba);
-
-//    send(ba);
-//}
+    stream << static_cast<quint8>(id) << static_cast<quint8>(Commands::SET_ID);
+    stream << static_cast<quint8>(new_id);
+    quint16 crc = crc16(reinterpret_cast<quint8*>(ba.data()), ba.length());
+    quint8 crc_h = (crc >> 8) & 0xFF;
+    quint8 crc_l = crc & 0xFF;
+    stream << static_cast<quint8>(crc_l) << static_cast<quint8>(crc_h);
+}
 ////Структура фрейма ответа(от устройства): [ID_new][0x05][OK][CRC16_L][CRC16_H]
 ////[ID_new] - новый ID устройства;
 ////[0x05] - команда;
 ////[OK] - статус(0 - не выполнено; 1 - выполнено);
 
-//void ControllerProtocol::parseAnswer(QByteArray ba)
-//{
-//    int reply_id = ba[0];
-//    Commands cmd = static_cast<Commands>(ba[1]);
-//    switch (cmd)
-//    {
-//        case Commands::SET_ID:
-//            qDebug() << "Новый ID установлен";
-//            break;
-
-//        default:
-//            qDebug() << "Response error ";
-//            break;
-//    }
-//}

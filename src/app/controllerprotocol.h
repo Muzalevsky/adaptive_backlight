@@ -18,20 +18,25 @@ class ControllerProtocol : public QObject
 {
     Q_OBJECT
 public:
-    ControllerProtocol();
-    uint8_t broadcast_id = 0xFF;
+    ControllerProtocol(QObject *parent);
+
     uint8_t id;
-    void addCrcToArray(QByteArray& ba);
-    void getId();
-    void setLedNumber(int nLed);
-    void setBrightness(int br);
-    void getParams();
-    void setLedColor(QVector<QRgb> colors);
-    void setId(int new_id);
+
+    void getId(QByteArray ba);
+    void getParams(QByteArray ba);
+    void setBrightness(QByteArray ba, int br);
+    void setId(QByteArray ba, int new_id);
+    void setLedNumber(QByteArray ba, int nLed);
+private:
+    uint8_t broadcast_id = 0xFF;
+    int ledNumber;
+    int brightness;
+public slots:
     void parseAnswer(QByteArray ba);
 
 signals:
-    void send(QByteArray arr);
+    void getIdFromDevice(uint8_t);
+    void getBrightnessFromDevice(int);
 };
 
 #endif // CONTROLLERPROTOCOL_H
