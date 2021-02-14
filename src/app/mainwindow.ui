@@ -101,14 +101,14 @@
      <item>
       <widget class="QPushButton" name="serialSettingsButton">
        <property name="text">
-        <string>Настройки порта </string>
+        <string>Serial settings</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="openPortButton">
        <property name="text">
-        <string>Подключиться</string>
+        <string>Connect</string>
        </property>
        <property name="checkable">
         <bool>true</bool>
