@@ -2,6 +2,11 @@
 #include <FastLED.h>
 #include "AB_Protocol.h"
 
+#define LEONARDO_VERSION
+#ifndef LEONARDO_VERSION
+#define USUAL_ARDUINO
+#endif
+
 #define baud_rate 256000
 #define LEDPIN 13 // Пин диода на плате для индикации сообщений
 #define frame_timeout 4 // Время между фреймами 1 == 50us
@@ -14,7 +19,11 @@
 #define ClrBit(var, bit_num) ((var) &= (~(1<<(bit_num))))
 
 // Функции
+#ifdef USUAL_ARDUINO
 static void Timer2Init(void);
+#elif defined LEONARDO_VERSION
+static void  Timer3Init(void);
+#endif
 static void LedsInit(void);
 static void serial_frame_handler(void);
 static void serial_framework(unsigned int input_bytes);
@@ -47,7 +56,12 @@ uint8_t BR1, BR2;
 void setup() {
   // Настройка таймера 2
   cli(); // отключить глобальные прерывания
+#ifdef USUAL_ARDUINO
   Timer2Init();
+#elif defined LEONARDO_VERSION
+  Timer3Init();
+#endif
+
   sei();  // включить глобальные прерывания
 
   device_id = EEPROM.read(ADDR_ID);
@@ -243,6 +257,7 @@ static void LedsInit(void){
   }
 }
 
+#ifdef USUAL_ARDUINO
 static void Timer2Init(void){
   // Настройка на режим совпадения(СТС)
   ClrBit(TCCR2A, WGM20);
@@ -270,8 +285,33 @@ static void Timer2Init(void){
   // Включение прерывания по совпадению (СТС)
   SetBit(TIMSK2,  OCIE2A);   
 }
+#endif
+#ifdef LEONARDO_VERSION
+static void  Timer3Init(void){
+  // Настройка на режим совпадения(СТС)
+  ClrBit(TCCR3A, WGM30);
+  SetBit(TCCR3A, WGM31);
+  ClrBit(TCCR3B, WGM32);
+  // Мод 2------------------------------------
+  // Конфигурация на Fosc/32 (1 такт 2 мкс)
+  SetBit(TCCR3B, CS30);
+  SetBit(TCCR3B, CS31);
+  ClrBit(TCCR3B, CS32);
+  // Предел для регистра сравнения
+  OCR3A = 50; // 50 ~ 100 мкс
+  // -----------------------------------------
+  // Включение прерывания по совпадению (СТС)
+  SetBit(TIMSK3,  OCIE3A); 
+  
+}
+#endif
 
+#ifdef USUAL_ARDUINO
 ISR(TIMER2_COMPA_vect){
+#endif
+#ifdef LEONARDO_VERSION
+ISR(TIMER3_COMPA_vect){
+#endif
   if(frame_timeout_flag){
     if (counter > frame_timeout){
       frame_timeout_flag = 0;
