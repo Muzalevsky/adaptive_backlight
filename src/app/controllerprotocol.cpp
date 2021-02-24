@@ -64,7 +64,7 @@ void ControllerProtocol::parseAnswer(QByteArray ba)
 }
 
 //    Структура фрейма запроса(к устройству): [0xFF][0x00][CRC16_L][CRC16_H]
-void ControllerProtocol::getId(QByteArray ba)
+void ControllerProtocol::getId(QByteArray& ba)
 {
     QDataStream stream(&ba, QIODevice::WriteOnly);
     stream.setByteOrder( QDataStream::LittleEndian );
@@ -81,7 +81,7 @@ void ControllerProtocol::getId(QByteArray ba)
 
 
 //    Структура фрейма запроса(к устройству): [ID][0x01][LED1][LED2][CRC16_L][CRC16_H]
-void ControllerProtocol::setLedNumber(QByteArray ba, int nLed)
+void ControllerProtocol::setLedNumber(QByteArray& ba, int nLed)
 {
     ledNumber = nLed;
     QDataStream stream(&ba, QIODevice::WriteOnly);
@@ -101,7 +101,7 @@ void ControllerProtocol::setLedNumber(QByteArray ba, int nLed)
 ////[OK] - статус(0 - не выполнено; 1 - выполнено);
 
 //    Структура фрейма запроса(к устройству): [ID][0x02][BR1][BR2][CRC16_L][CRC16_H]
-void ControllerProtocol::setBrightness(QByteArray ba, int br)
+void ControllerProtocol::setBrightness(QByteArray& ba, int br)
 {
     brightness = br;
 
@@ -122,7 +122,7 @@ void ControllerProtocol::setBrightness(QByteArray ba, int br)
 ////[OK] - статус(0 - не выполнено; 1 - выполнено);
 
 //    Структура фрейма запроса(к устройству): [ID][0x03][CRC16_L][CRC16_H]
-void ControllerProtocol::getParams(QByteArray ba)
+void ControllerProtocol::getParams(QByteArray& ba)
 {
     QDataStream stream(&ba, QIODevice::WriteOnly);
     stream.setVersion(QDataStream::Qt_5_10);
@@ -146,7 +146,7 @@ void ControllerProtocol::getParams(QByteArray ba)
 
 
 //    Структура фрейма запроса(к устройству): [ID][0x05][ID_new][CRC16_L][CRC16_H]
-void ControllerProtocol::setId(QByteArray ba, int new_id)
+void ControllerProtocol::setId(QByteArray& ba, int new_id)
 {
     QDataStream stream(&ba, QIODevice::WriteOnly);
     stream.setVersion(QDataStream::Qt_5_10);

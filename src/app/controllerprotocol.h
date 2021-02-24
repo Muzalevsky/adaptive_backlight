@@ -22,11 +22,11 @@ public:
 
     uint8_t id;
 
-    void getId(QByteArray ba);
-    void getParams(QByteArray ba);
-    void setBrightness(QByteArray ba, int br);
-    void setId(QByteArray ba, int new_id);
-    void setLedNumber(QByteArray ba, int nLed);
+    void getId(QByteArray& ba);
+    void getParams(QByteArray& ba);
+    void setBrightness(QByteArray& ba, int br);
+    void setId(QByteArray& ba, int new_id);
+    void setLedNumber(QByteArray& ba, int nLed);
 private:
     uint8_t broadcast_id = 0xFF;
     int ledNumber;

@@ -81,7 +81,7 @@ void MainWindow::requestDeviceId()
 {
     QByteArray ba;
     controllerProto->getId(ba);
-    qDebug() << ba;
+    qDebug() << "requestDeviceId" << ba;
     emit writeToPort(ba);
 }
 
@@ -89,7 +89,7 @@ void MainWindow::requestDeviceParams()
 {
     QByteArray ba;    
     controllerProto->getParams(ba);
-    qDebug() << ba;
+    qDebug() << "requestDeviceParams" << ba;
     emit writeToPort(ba);
 }
 
@@ -97,7 +97,7 @@ void MainWindow::assignNewId(int id)
 {
     QByteArray ba;
     controllerProto->setId(ba,id);
-    qDebug() << ba;
+    qDebug() << "assignNewId" << ba;
     emit writeToPort(ba);
 }
 
@@ -111,7 +111,7 @@ void MainWindow::assignNewLedNumber(int led_per_side)
 
     QByteArray ba;
     controllerProto->setLedNumber(ba, 2 * (height_nLed + width_nLed));
-    qDebug() << ba;
+    qDebug() << "assignNewLedNumber" << ba;
     emit writeToPort(ba);
 }
 
@@ -119,7 +119,7 @@ void MainWindow::assignNewBrightness(int br)
 {
     QByteArray ba;
     controllerProto->setBrightness(ba, br);
-    qDebug() << ba;
+    qDebug() << "assignNewBrightness" << ba;
     emit writeToPort(ba);
 }
 
@@ -254,7 +254,9 @@ void MainWindow::writeSettings()
     settings->setValue("led_controller/flow", QString::number(led_serial->portSettings.flowControl));
     settings->setValue("led_controller/parity", QString::number(led_serial->portSettings.parity));
     settings->setValue("led_controller/stopBits", QString::number(led_serial->portSettings.stopBits));
-//    settings->setValue("led_controller/device_id", dev_id);
+    settings->setValue("led_controller/responseTime", QString::number(led_serial->portSettings.responseTime));
+    settings->setValue("led_controller/numberOfRetries", QString::number(led_serial->portSettings.numberOfRetries));
+    //    settings->setValue("led_controller/device_id", dev_id);
 
     settings->sync();
     qDebug() << "Настройки сохранены";
@@ -284,6 +286,9 @@ void MainWindow::loadSettings()
     portSettings.flowControl = settings->value("led_controller/flow").toInt();
     portSettings.parity = settings->value("led_controller/parity").toInt();
     portSettings.stopBits = settings->value("led_controller/stopBits").toInt();
+    portSettings.responseTime = settings->value("led_controller/responseTime").toInt();
+    portSettings.numberOfRetries = settings->value("led_controller/numberOfRetries").toInt();
+
 
     qDebug() << "Read from config: port " << portSettings.name << " /baud " << led_controller_baud;
 
@@ -306,7 +311,6 @@ void MainWindow::serialPortConnected(bool isConnected)
     if (isConnected) {
         ui->openPortButton->setText(tr("Disconnect"));
         requestDeviceId();
-        requestDeviceParams();
     } else {
         ui->openPortButton->setText(tr("Connect"));
         if (ui->openPortButton->isChecked())

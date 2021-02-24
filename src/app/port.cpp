@@ -125,7 +125,7 @@ void Port::WriteToPort(QByteArray ba)
 {
     if ( thisPort.isOpen() ) {
         thisPort.write(ba);
-//        qDebug() << ">>>" << ba;
+        qDebug() << ">>>" << ba;
     }
 }
 
@@ -135,7 +135,7 @@ void Port::ReadInPort()
     {
         QByteArray data;
         data.append(thisPort.readAll());
-//        qDebug() << "<<<" << data;
+        qDebug() << "<<<" << data;
         emit outPortByteArray(data);
     }
 }
