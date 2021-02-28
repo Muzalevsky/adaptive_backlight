@@ -14,8 +14,6 @@ Port::Port(QObject *parent) :
     qRegisterMetaType<QSerialPort::SerialPortError>();
     connect(thisPort, &QSerialPort::errorOccurred, this, &Port::handleError);
     connect(thisPort, &QSerialPort::readyRead,this, &Port::ReadInPort);
-    connect(&m_timer, &QTimer::timeout, this, &Port::handleTimeout);
-    m_timer.start(5000);
 }
 
 Port::~Port()
@@ -33,8 +31,6 @@ void Port::process_Port()
     qDebug() << "Serial port" << this
              << "in thread" << this->thread()
              << "parent" << parent();
-
-
 }
 
 void Port::openPort()
@@ -61,9 +57,7 @@ void Port::openPort()
                 qDebug() << portSettings.name + " >> Open!";
                 emit portStateChanged(true);
                 thisPort->clear();
-
                 thisPort->clear( QSerialPort::AllDirections );
-
             }
         }
         else
@@ -112,16 +106,6 @@ void Port::handleError(QSerialPort::SerialPortError error)
     }
 }
 
-void Port::handleTimeout()
-{
-//    if (m_readData.isEmpty()) {
-//        qDebug() << "No receive data";
-//    } else {
-//        qDebug() << "Receive" << m_readData;
-//        m_readData.clear();
-//    }
-}
-
 void Port::closePort()
 {
     if ( thisPort->isOpen() ) {
@@ -136,23 +120,17 @@ void Port::WriteToPort(QByteArray ba)
 {
     if ( thisPort->isOpen() ) {
         thisPort->write(ba);
-        qDebug() << ">>>" << ba.toHex();
+//        qDebug() << ">>>" << ba.toHex();
     }
 }
 
 void Port::ReadInPort()
 {
-    m_readData.clear();
-    m_readData.append(thisPort->readAll());
-    qDebug() << "m_readData" << m_readData.toHex();
     if ( thisPort->isOpen() )
     {
         QByteArray data;
         data.append(thisPort->readAll());
-        qDebug() << "<<<" << data;
+//        qDebug() << "<<<" << data;
         emit outPortByteArray(data);
     }
-
-    if (!m_timer.isActive())
-        m_timer.start(5000);
 }

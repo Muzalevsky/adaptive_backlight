@@ -23,6 +23,8 @@ MainWindow::MainWindow(QWidget *parent) :
      * Handle for the protocol correct commands
      */
     connect(controllerProto, &ControllerProtocol::getIdFromDevice, ui->deviceIdBox, &QSpinBox::setValue);
+    connect(controllerProto, &ControllerProtocol::getIdFromDevice, this, &MainWindow::requestDeviceParams);
+
     connect(controllerProto, &ControllerProtocol::getBrightnessFromDevice, ui->brightnessSlider, &QSlider::setValue);
 
     /*
@@ -56,9 +58,9 @@ MainWindow::MainWindow(QWidget *parent) :
      */
     connect(ui->openPortButton, &QPushButton::clicked, this, &MainWindow::connectSerialPortClicked);
     connect(ui->heightLedBox, SIGNAL(valueChanged(int)), this, SLOT(assignNewLedNumber(int)));
-    connect(ui->heightLedBox, SIGNAL(valueChanged(int)), this, SLOT(assignNewLedNumber(int)));
+    connect(ui->widthLedBox, SIGNAL(valueChanged(int)), this, SLOT(assignNewLedNumber(int)));
     connect(ui->deviceIdBox, SIGNAL(valueChanged(int)), this, SLOT(assignNewId(int)));
-    connect(ui->brightnessSlider, &QSlider::valueChanged, this, &MainWindow::assignNewBrightness);
+    connect(ui->brightnessSlider, &QSlider::sliderReleased, this, &MainWindow::assignNewBrightness);
 
     loadSettings();
 
@@ -115,8 +117,9 @@ void MainWindow::assignNewLedNumber(int led_per_side)
     emit writeToPort(ba);
 }
 
-void MainWindow::assignNewBrightness(int br)
+void MainWindow::assignNewBrightness()
 {
+    int br = ui->brightnessSlider->value();
     QByteArray ba;
     controllerProto->setBrightness(ba, br);
     qDebug() << "assignNewBrightness" << ba;
@@ -311,7 +314,7 @@ void MainWindow::serialPortConnected(bool isConnected)
     if (isConnected) {
         ui->openPortButton->setText(tr("Disconnect"));
 
-        QThread::sleep(3);
+//        QThread::sleep(1);
         requestDeviceId();
     } else {
         ui->openPortButton->setText(tr("Connect"));

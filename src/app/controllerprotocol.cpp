@@ -22,7 +22,7 @@ void ControllerProtocol::parseAnswer(QByteArray ba)
     {
         case Commands::GET_ID:
         {
-            id = ba[0];
+            id = static_cast<uint8_t>(ba[0]);
             qDebug() << "<< GET_ID:" << id;
             emit getIdFromDevice(id);
             break;
@@ -42,10 +42,10 @@ void ControllerProtocol::parseAnswer(QByteArray ba)
         case Commands::GET_PARAMS:
         {
             id = ba[0];
-            qDebug() << "<< GET_PARAMS:" << id;
 
             ledNumber = ba[2] * 10 + ba[3];
             brightness = ba[4] * 10 + ba[5];
+            qDebug() << "<< GET_PARAMS:" << "led" << ledNumber << "br" << brightness;
             emit getBrightnessFromDevice(brightness);
             break;
         }

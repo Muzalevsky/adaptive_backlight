@@ -48,7 +48,7 @@ signals:
     void writeToPort(QByteArray);
 
 private slots:
-    void assignNewBrightness(int br);
+    void assignNewBrightness();
     void assignNewId(int id);
     void assignNewLedNumber(int led_per_side);
 
