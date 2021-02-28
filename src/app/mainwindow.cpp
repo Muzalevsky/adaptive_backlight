@@ -310,6 +310,8 @@ void MainWindow::serialPortConnected(bool isConnected)
 {
     if (isConnected) {
         ui->openPortButton->setText(tr("Disconnect"));
+
+        QThread::sleep(3);
         requestDeviceId();
     } else {
         ui->openPortButton->setText(tr("Connect"));

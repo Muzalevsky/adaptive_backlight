@@ -5,17 +5,17 @@
 #include <QThread>
 
 Port::Port(QObject *parent) :
-    QObject(parent)
+    QObject(parent),
+    thisPort(new QSerialPort(this))
 {
     /*
      * see https://doc-snapshots.qt.io/qt5-5.10/qserialport.html
-     *
-     * This option is useful if the data is only read at certain points in time
-     *  (for instance in a real-time streaming application) or if the serial
-     * port should be protected against receiving too much data, which
-     * may eventually cause the application to run out of memory.
      */
-//    thisPort.setReadBufferSize(1000);
+    qRegisterMetaType<QSerialPort::SerialPortError>();
+    connect(thisPort, &QSerialPort::errorOccurred, this, &Port::handleError);
+    connect(thisPort, &QSerialPort::readyRead,this, &Port::ReadInPort);
+    connect(&m_timer, &QTimer::timeout, this, &Port::handleTimeout);
+    m_timer.start(5000);
 }
 
 Port::~Port()
@@ -34,15 +34,13 @@ void Port::process_Port()
              << "in thread" << this->thread()
              << "parent" << parent();
 
-    qRegisterMetaType<QSerialPort::SerialPortError>();
-    connect(&thisPort, &QSerialPort::errorOccurred, this, &Port::handleError);
-    connect(&thisPort, SIGNAL(readyRead()),this,SLOT(ReadInPort()));    
+
 }
 
 void Port::openPort()
 {
-    thisPort.setPortName(portSettings.name);
-    qDebug() << "Opening " << thisPort.portName();
+    thisPort->setPortName(portSettings.name);
+    qDebug() << "Opening " << thisPort->portName();
 
     qDebug() << "baudRate" << portSettings.baudRate;
     qDebug() << "data bits" << portSettings.dataBits;
@@ -50,31 +48,34 @@ void Port::openPort()
     qDebug() << "stop bits" << portSettings.stopBits;
     qDebug() << "FlowControl" << portSettings.flowControl;
 
-    if (thisPort.open(QIODevice::ReadWrite))
+    if (thisPort->open(QIODevice::ReadWrite))
     {
-        if ( thisPort.setBaudRate(portSettings.baudRate) &&
-            thisPort.setDataBits(static_cast<QSerialPort::DataBits>(portSettings.dataBits)) &&
-            thisPort.setParity(static_cast<QSerialPort::Parity>(portSettings.parity)) &&
-            thisPort.setStopBits(static_cast<QSerialPort::StopBits>(portSettings.stopBits)) &&
-            thisPort.setFlowControl(static_cast<QSerialPort::FlowControl>(portSettings.flowControl)) )
+        if ( thisPort->setBaudRate(portSettings.baudRate) &&
+            thisPort->setDataBits(static_cast<QSerialPort::DataBits>(portSettings.dataBits)) &&
+            thisPort->setParity(static_cast<QSerialPort::Parity>(portSettings.parity)) &&
+            thisPort->setStopBits(static_cast<QSerialPort::StopBits>(portSettings.stopBits)) &&
+            thisPort->setFlowControl(static_cast<QSerialPort::FlowControl>(portSettings.flowControl)) )
         {
-            if ( thisPort.isOpen() )
+            if ( thisPort->isOpen() )
             {
                 qDebug() << portSettings.name + " >> Open!";
                 emit portStateChanged(true);
-                thisPort.clear();
+                thisPort->clear();
+
+                thisPort->clear( QSerialPort::AllDirections );
+
             }
         }
         else
         {
-            thisPort.close();
+            thisPort->close();
             emit portStateChanged(false);
-            qDebug() << thisPort.errorString();
+            qDebug() << thisPort->errorString();
         }
     }
     else
     {
-        qDebug() << thisPort.errorString();
+        qDebug() << thisPort->errorString();
     }
 }
 
@@ -82,7 +83,7 @@ void Port::openPort()
 void Port::handleError(QSerialPort::SerialPortError error)
 {
     if ( error != QSerialPort::NoError )
-        qDebug() << thisPort.portName() << "Error:" <<  thisPort.errorString();
+        qDebug() << thisPort->portName() << "Error:" <<  thisPort->errorString();
 
     switch ( error )
     {
@@ -90,7 +91,7 @@ void Port::handleError(QSerialPort::SerialPortError error)
          * An error occurred while attempting to open an non-existing device.
          */
         case QSerialPort::DeviceNotFoundError:
-            thisPort.close();
+            thisPort->close();
             emit portStateChanged(false);
         break;
 
@@ -99,7 +100,7 @@ void Port::handleError(QSerialPort::SerialPortError error)
          * when the device is unexpectedly removed from the system.
          */
         case QSerialPort::ResourceError:
-            thisPort.close();
+            thisPort->close();
             emit portStateChanged(false);
         break;
 
@@ -111,11 +112,21 @@ void Port::handleError(QSerialPort::SerialPortError error)
     }
 }
 
+void Port::handleTimeout()
+{
+//    if (m_readData.isEmpty()) {
+//        qDebug() << "No receive data";
+//    } else {
+//        qDebug() << "Receive" << m_readData;
+//        m_readData.clear();
+//    }
+}
+
 void Port::closePort()
 {
-    if ( thisPort.isOpen() ) {
-        thisPort.clear( QSerialPort::AllDirections );
-        thisPort.close();
+    if ( thisPort->isOpen() ) {
+        thisPort->clear( QSerialPort::AllDirections );
+        thisPort->close();
         qDebug() << portSettings.name << " >> Close!";
         emit portStateChanged(false);
     }
@@ -123,19 +134,25 @@ void Port::closePort()
 
 void Port::WriteToPort(QByteArray ba)
 {
-    if ( thisPort.isOpen() ) {
-        thisPort.write(ba);
-        qDebug() << ">>>" << ba;
+    if ( thisPort->isOpen() ) {
+        thisPort->write(ba);
+        qDebug() << ">>>" << ba.toHex();
     }
 }
 
 void Port::ReadInPort()
 {
-    if ( thisPort.isOpen() )
+    m_readData.clear();
+    m_readData.append(thisPort->readAll());
+    qDebug() << "m_readData" << m_readData.toHex();
+    if ( thisPort->isOpen() )
     {
         QByteArray data;
-        data.append(thisPort.readAll());
+        data.append(thisPort->readAll());
         qDebug() << "<<<" << data;
         emit outPortByteArray(data);
     }
+
+    if (!m_timer.isActive())
+        m_timer.start(5000);
 }

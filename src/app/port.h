@@ -4,6 +4,7 @@
 #include <QSerialPort>
 #include <QSerialPortInfo>
 #include <QVector>
+#include <QTimer>
 
 typedef struct {
     QString name;
@@ -29,8 +30,9 @@ public:
 
     PortSettings portSettings;
 private:
-    QSerialPort thisPort;
-
+    QSerialPort *thisPort = nullptr;
+    QByteArray m_readData;
+    QTimer m_timer;
 signals:
     void finished_Port();
     void outPortByteArray(QByteArray data);
@@ -45,6 +47,8 @@ public slots:
     void setPortSettings(PortSettings ps);
 
 private slots:
+    void handleTimeout();
+
     void handleError(QSerialPort::SerialPortError error);
 };
 
